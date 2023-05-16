@@ -13,6 +13,13 @@ import (
 // Get the seccomp header in scope
 // Need stdlib.h for free() on cstrings
 
+// To compile libseccomp-golang against a specific version of libseccomp:
+// cd ../libseccomp && mkdir -p prefix
+// ./configure --prefix=$PWD/prefix && make && make install
+// cd ../libseccomp-golang
+// PKG_CONFIG_PATH=$PWD/../libseccomp/prefix/lib/pkgconfig/ make
+// LD_PRELOAD=$PWD/../libseccomp/prefix/lib/libseccomp.so.2.5.0 PKG_CONFIG_PATH=$PWD/../libseccomp/prefix/lib/pkgconfig/ make test
+
 // #cgo pkg-config: libseccomp
 /*
 #include <errno.h>
@@ -86,12 +93,27 @@ const uint32_t C_ARCH_RISCV64      = SCMP_ARCH_RISCV64;
 #define SCMP_ACT_LOG 0x7ffc0000U
 #endif
 
+#ifndef SCMP_ACT_KILL_PROCESS
+#define SCMP_ACT_KILL_PROCESS 0x80000000U
+#endif
+
+#ifndef SCMP_ACT_KILL_THREAD
+#define SCMP_ACT_KILL_THREAD	0x00000000U
+#endif
+
+#ifndef SCMP_ACT_NOTIFY
+#define SCMP_ACT_NOTIFY 0x7fc00000U
+#endif
+
 const uint32_t C_ACT_KILL          = SCMP_ACT_KILL;
+const uint32_t C_ACT_KILL_PROCESS  = SCMP_ACT_KILL_PROCESS;
+const uint32_t C_ACT_KILL_THREAD   = SCMP_ACT_KILL_THREAD;
 const uint32_t C_ACT_TRAP          = SCMP_ACT_TRAP;
 const uint32_t C_ACT_ERRNO         = SCMP_ACT_ERRNO(0);
 const uint32_t C_ACT_TRACE         = SCMP_ACT_TRACE(0);
 const uint32_t C_ACT_LOG           = SCMP_ACT_LOG;
 const uint32_t C_ACT_ALLOW         = SCMP_ACT_ALLOW;
+const uint32_t C_ACT_NOTIFY        = SCMP_ACT_NOTIFY;
 
 // The libseccomp SCMP_FLTATR_CTL_LOG member of the scmp_filter_attr enum was
 // added in v2.4.0
@@ -315,7 +337,7 @@ func ensureSupportedVersion() error {
 }
 
 // Get the API level
-func getApi() (uint, error) {
+func getAPI() (uint, error) {
 	api := C.seccomp_api_get()
 	if api == 0 {
 		return 0, fmt.Errorf("API level operations are not supported")
@@ -325,9 +347,9 @@ func getApi() (uint, error) {
 }
 
 // Set the API level
-func setApi(api uint) error {
+func setAPI(api uint) error {
 	if retCode := C.seccomp_api_set(C.uint(api)); retCode != 0 {
-		if syscall.Errno(-1*retCode) == syscall.EOPNOTSUPP {
+		if errRc(retCode) == syscall.EOPNOTSUPP {
 			return fmt.Errorf("API level operations are not supported")
 		}
 
@@ -344,6 +366,10 @@ func filterFinalizer(f *ScmpFilter) {
 	f.Release()
 }
 
+func errRc(rc C.int) error {
+	return syscall.Errno(-1 * rc)
+}
+
 // Get a raw filter attribute
 func (f *ScmpFilter) getFilterAttr(attr scmpFilterAttr) (C.uint32_t, error) {
 	f.lock.Lock()
@@ -357,7 +383,7 @@ func (f *ScmpFilter) getFilterAttr(attr scmpFilterAttr) (C.uint32_t, error) {
 
 	retCode := C.seccomp_attr_get(f.filterCtx, attr.toNative(), &attribute)
 	if retCode != 0 {
-		return 0x0, syscall.Errno(-1 * retCode)
+		return 0x0, errRc(retCode)
 	}
 
 	return attribute, nil
@@ -374,7 +400,7 @@ func (f *ScmpFilter) setFilterAttr(attr scmpFilterAttr, value C.uint32_t) error 
 
 	retCode := C.seccomp_attr_set(f.filterCtx, attr.toNative(), value)
 	if retCode != 0 {
-		return syscall.Errno(-1 * retCode)
+		return errRc(retCode)
 	}
 
 	return nil
@@ -617,6 +643,8 @@ func actionFromNative(a C.uint32_t) (ScmpAction, error) {
 		return ActLog, nil
 	case C.C_ACT_ALLOW:
 		return ActAllow, nil
+	case C.C_ACT_NOTIFY:
+		return ActNotify, nil
 	default:
 		return 0x0, fmt.Errorf("unrecognized action %#x", uint32(a))
 	}
@@ -639,6 +667,8 @@ func (a ScmpAction) toNative() C.uint32_t {
 		return C.C_ACT_LOG
 	case ActAllow:
 		return C.C_ACT_ALLOW
+	case ActNotify:
+		return C.C_ACT_NOTIFY
 	default:
 		return 0x0
 	}
