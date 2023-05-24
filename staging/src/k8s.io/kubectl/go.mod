@@ -96,8 +96,6 @@ require (
 )
 
 replace (
-	github.com/docker/distribution => github.com/docker/distribution v2.7.1+incompatible
-	github.com/moby/term => github.com/moby/term v0.0.0-20210610120745-9d4ed1856297
 	k8s.io/api => ../api
 	k8s.io/apimachinery => ../apimachinery
 	k8s.io/cli-runtime => ../cli-runtime
