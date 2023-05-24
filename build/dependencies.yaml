@@ -87,7 +87,7 @@ dependencies:
 
   # Golang
   - name: "golang: upstream version"
-    version: 1.19.6
+    version: 1.19.9
     refPaths:
     - path: .go-version
     - path: build/build-image/cross/VERSION
