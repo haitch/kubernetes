@@ -424,6 +424,34 @@
 
 <!-- END MUNGE: GENERATED_TOC -->
 
+# v1.23.17-akslts1
+
+## Downloads for v1.23.17-akslts1
+
+### Source Code
+
+### Client Binaries
+
+### Server Binaries
+
+### Node Binaries
+
+### Container Images
+
+## Changelog since v1.23.17
+
+## Changes by Kind
+
+### Bug or Regression
+- runc CVE fix
+
+## Dependencies
+
+### Changed
+- github.com/opencontainers/runc v1.0.2 -> v1.1.6
+- github.com/google/cadvisor v0.43.1 -> v0.44.1
+- github.com/checkpoint-restore/go-criu/v5 v5.0.5 -> v5.3.0
+
 # v1.23.17
 
 
